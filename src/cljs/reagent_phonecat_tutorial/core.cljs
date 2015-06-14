@@ -9,20 +9,38 @@ Try and call this function from the ClojureScript REPL."
   [& [name]]
   (print "Hello," (or name "World") "!"))
 
-(def static-content "Some sample, statically defined DOM content."
-     [:ul#phones-list
-      [:li.phone-item 
-       [:span "Nexus S"]
-       [:p "Fast just got faster with Nexus S"]]
-      [:li {:class "phone-item"} 
-       [:span "Motorola XOOM™ with Wi-Fi"]
-       [:p "The Next, Next Generation tablet."]]
-      ])
+;; --------------------------------------------
+;; Application data
+
+(def hardcoded-phones-data [{:name "Nexus S" 
+                             :description "Fast just got faster with Nexus S"}
+                            {:name "Motorola XOOM™ with Wi-Fi" 
+                             :description "The Next, Next Generation tablet."}])
+
+;; --------------------------------------------
+;; View components
+
+(declare ;; here we declare our components to define their in an order that feels natural.  
+  phones-list 
+    phone-item)
+
+(defn phones-list "An unordered list of phones" 
+  [phones-list]
+  [:ul 
+   (for [phone phones-list]
+     ^{:key (:name phone)} [phone-item phone]
+     )])
+
+(defn phone-item "An phone item component"
+  [{:keys [name description] :as phone}]
+  [:li.phone-item 
+   [:span name]
+   [:p description]])
 
 (defn mount-root "Creates the application view and injects ('mounts') it into the root element." 
   []
   (rg/render 
-    static-content
+    [phones-list hardcoded-phones-data]
     (.getElementById js/document "app")))
 
 (defn init! []
