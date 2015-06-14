@@ -1,5 +1,6 @@
 (ns reagent-phonecat.core
-    (:require [reagent.core :as rg])
+    (:require [reagent.core :as rg]
+              [clojure.string :as str])
     )
 
 (enable-console-print!)
@@ -10,24 +11,68 @@ Try and call this function from the ClojureScript REPL."
   (print "Hello," (or name "World") "!"))
 
 ;; --------------------------------------------
-;; Application data
+;; Application data 
 
-(def hardcoded-phones-data [{:name "Nexus S" 
-                             :description "Fast just got faster with Nexus S"}
-                            {:name "Motorola XOOM™ with Wi-Fi" 
-                             :description "The Next, Next Generation tablet."}])
+(def hardcoded-phones-data [{:name "Nexus S"
+                             :description "Fast just got faster with Nexus S."
+                             :age 1}
+                            {:name "Motorola XOOM™ with Wi-Fi"
+                             :description "The Next, Next Generation tablet."
+                             :age 2}
+                            {:name "MOTOROLA XOOM™"
+                             :description "The Next, Next Generation tablet."
+                             :age 3}])
+
+;; --------------------------------------------
+;; Search logic
+
+(defn matches-search? "Determines if a phone item matches a text query."
+  [search data]
+  (let [qp (-> search (or "") str/lower-case re-pattern)]
+    (->> (vals data)
+         (filter string?) (map str/lower-case)
+         (some #(re-find qp %))
+         )))
+
+;; --------------------------------------------
+;; State
+
+(def state "Reagent atom that holds our global application state." 
+  (rg/atom {:phones hardcoded-phones-data
+            :search ""
+            }))
+
+(defn update-search [state new-search]
+  (assoc state :search new-search))
 
 ;; --------------------------------------------
 ;; View components
 
 (declare ;; here we declare our components to define their in an order that feels natural.  
-  phones-list 
-    phone-item)
+  top-cpnt 
+    search-cpnt
+    phones-list 
+      phone-item)
+
+(defn top-cpnt []
+  (let [{:keys [phones search]} @state]
+    [:div.container-fluid
+     [:div.row
+      [:div.col-md-2 [search-cpnt search]]
+      [:div.col-md-8 [phones-list phones search]]
+      ]]))
+
+(defn search-cpnt [search]
+  [:span 
+   "Search: "
+   [:input {:type "text" 
+            :value search
+            :on-change (fn [e] (swap! state update-search (-> e .-target .-value)))}]])
 
 (defn phones-list "An unordered list of phones" 
-  [phones-list]
-  [:ul 
-   (for [phone phones-list]
+  [phones-list search]
+  [:ul.phones
+   (for [phone (->> phones-list (filter #(matches-search? search %)))]
      ^{:key (:name phone)} [phone-item phone]
      )])
 
@@ -40,7 +85,7 @@ Try and call this function from the ClojureScript REPL."
 (defn mount-root "Creates the application view and injects ('mounts') it into the root element." 
   []
   (rg/render 
-    [phones-list hardcoded-phones-data]
+    [top-cpnt]
     (.getElementById js/document "app")))
 
 (defn init! []
