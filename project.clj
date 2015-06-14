@@ -6,6 +6,9 @@
 
   :source-paths ["src/clj" "src/cljs"]
 
+  ;; --------------------------------------------------------------------------------
+  ;; Dependencies
+  
   :dependencies [;; the Clojure(Script) language
                  [org.clojure/clojure "1.7.0-RC1"]
                  [org.clojure/clojurescript "0.0-3308" :scope "provided"]
@@ -23,22 +26,21 @@
                  [org.webjars/bootstrap "3.1.0"]
                  [cljsjs/react "0.13.3-0"]
                  [reagent "0.5.0"]
-                 [reagent-forms "0.5.1"]
-                 [reagent-utils "0.1.4"]
-                 [secretary "1.2.3"]
                  ]
 
+  ;; --------------------------------------------------------------------------------
+  
   :plugins [[lein-environ "1.0.0"]
             [lein-asset-minifier "0.2.2"]]
 
-  :ring {:handler reagent-phonecat-tutorial.handler/app
-         :uberwar-name "reagent-phonecat-tutorial.war"}
+  :ring {:handler reagent-phonecat.handler/app
+         :uberwar-name "reagent-phonecat.war"}
 
   :min-lein-version "2.5.0"
 
-  :uberjar-name "reagent-phonecat-tutorial.jar"
+  :uberjar-name "reagent-phonecat.jar"
 
-  :main reagent-phonecat-tutorial.server
+  :main reagent-phonecat.server
 
   :clean-targets ^{:protect false} [[:cljsbuild :builds :app :compiler :output-dir]
                                     [:cljsbuild :builds :app :compiler :output-to]]
@@ -54,7 +56,7 @@
                                         :optimizations :none
                                         :pretty-print  true}}}}
 
-  :profiles {:dev {:repl-options {:init-ns reagent-phonecat-tutorial.repl
+  :profiles {:dev {:repl-options {:init-ns reagent-phonecat.repl
                                   :nrepl-middleware [cemerick.piggieback/wrap-cljs-repl]}
 
                    :dependencies [[ring-mock "0.1.5"]
@@ -76,12 +78,12 @@
                    :figwheel {:http-server-root "public"
                               :server-port 3449
                               :css-dirs ["resources/public/css"]
-                              :ring-handler reagent-phonecat-tutorial.handler/app}
+                              :ring-handler reagent-phonecat.handler/app}
 
                    :env {:dev true}
 
                    :cljsbuild {:builds {:app {:source-paths ["env/dev/cljs"]
-                                              :compiler {:main "reagent-phonecat-tutorial.dev"
+                                              :compiler {:main "reagent-phonecat.dev"
                                                          :source-map true}}
 }
 }}
