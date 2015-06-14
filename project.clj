@@ -1,27 +1,32 @@
 (defproject reagent-phonecat-tutorial "0.1.0-SNAPSHOT"
-  :description "FIXME: write description"
-  :url "http://example.com/FIXME"
+  :description "A Reagent tutorial inspired by AngularJS's Phonecat."
+  :url "https://github.com/vvvvalvalval/reagent-phonecat"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
 
   :source-paths ["src/clj" "src/cljs"]
 
-  :dependencies [[org.clojure/clojure "1.7.0-RC1"]
+  :dependencies [;; the Clojure(Script) language
+                 [org.clojure/clojure "1.7.0-RC1"]
+                 [org.clojure/clojurescript "0.0-3308" :scope "provided"]
+                 
+                 ;; Server-side dependencies
                  [ring-server "0.4.0"]
+                 [ring "1.3.2"]
+                 [ring/ring-defaults "0.1.5"]
+                 [compojure "1.3.4"]
+                 [hiccup "1.0.5"]
+                 [environ "1.0.0"]
+                 [prone "0.8.2"]
+                 
+                 ;; client-side dependencies
+                 [org.webjars/bootstrap "3.1.0"]
                  [cljsjs/react "0.13.3-0"]
                  [reagent "0.5.0"]
                  [reagent-forms "0.5.1"]
                  [reagent-utils "0.1.4"]
-                 [ring "1.3.2"]
-                 [ring/ring-defaults "0.1.5"]
-                 [prone "0.8.2"]
-                 [compojure "1.3.4"]
-                 [hiccup "1.0.5"]
-                 [environ "1.0.0"]
-                 [org.clojure/clojurescript "0.0-3308" :scope "provided"]
                  [secretary "1.2.3"]
-                 
-                 [org.webjars/bootstrap "3.1.0"]]
+                 ]
 
   :plugins [[lein-environ "1.0.0"]
             [lein-asset-minifier "0.2.2"]]
