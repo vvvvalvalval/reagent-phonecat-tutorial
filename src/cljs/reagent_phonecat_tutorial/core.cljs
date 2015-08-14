@@ -109,10 +109,12 @@ Try and call this function from the ClojureScript REPL."
      )])
 
 (defn phone-item "An phone item component"
-  [{:keys [name description] :as phone}]
-  [:li.phone-item 
-   [:span name]
-   [:p description]])
+  [{:keys [name snippet id imageUrl] :as phone}]
+  (let [phone-page-href (str "#/phones/" id)]
+    [:li {:class "thumbnail"}
+     [:a.thumb {:href phone-page-href} [:img {:src imageUrl}]]
+     [:a {:href phone-page-href} name]
+     [:p snippet]]))
 
 (defn mount-root "Creates the application view and injects ('mounts') it into the root element." 
   []
