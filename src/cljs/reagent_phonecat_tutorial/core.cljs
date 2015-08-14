@@ -1,6 +1,7 @@
 (ns reagent-phonecat.core
     (:require [reagent.core :as rg]
-              [clojure.string :as str])
+              [clojure.string :as str]
+              [ajax.core :as ajx])
     )
 
 (enable-console-print!)
@@ -38,7 +39,7 @@ Try and call this function from the ClojureScript REPL."
 ;; State
 
 (def state "Reagent atom that holds our global application state." 
-  (rg/atom {:phones hardcoded-phones-data
+  (rg/atom {:phones []
             :search ""
             :order-prop :name
             }))
@@ -49,6 +50,18 @@ Try and call this function from the ClojureScript REPL."
     
 (defn update-search [state new-search]
   (assoc state :search new-search))
+
+
+;; --------------------------------------------
+;; Server communication
+
+(defn load-phones! "Fetches the list of phones from the server and updates the state atom with it" 
+  [state]
+  (ajx/GET "/phones/phones.json"
+           {:handler (fn [phones] (swap! state assoc :phones phones))
+            :error-handler (fn [details] (.warn js/console (str "Failed to refresh phones from server: " details)))
+            :response-format :json, :keywords? true}))
+
 
 ;; --------------------------------------------
 ;; View components
@@ -108,4 +121,5 @@ Try and call this function from the ClojureScript REPL."
     (.getElementById js/document "app")))
 
 (defn init! []
+  (load-phones! state)
   (mount-root))
