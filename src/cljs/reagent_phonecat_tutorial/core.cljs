@@ -40,8 +40,13 @@ Try and call this function from the ClojureScript REPL."
 (def state "Reagent atom that holds our global application state." 
   (rg/atom {:phones hardcoded-phones-data
             :search ""
+            :order-prop :name
             }))
 
+
+(def order-prop-state (rg/cursor state [:order-prop]))
+    
+    
 (defn update-search [state new-search]
   (assoc state :search new-search))
 
@@ -51,6 +56,7 @@ Try and call this function from the ClojureScript REPL."
 (declare ;; here we declare our components to define their in an order that feels natural.  
   top-cpnt 
     search-cpnt
+    order-prop-select
     phones-list 
       phone-item)
 
@@ -58,8 +64,12 @@ Try and call this function from the ClojureScript REPL."
   (let [{:keys [phones search]} @state]
     [:div.container-fluid
      [:div.row
-      [:div.col-md-2 [search-cpnt search]]
-      [:div.col-md-8 [phones-list phones search]]
+      [:div.col-md-2 
+       [search-cpnt search]
+       [:br]
+       "Sort by:"
+       [order-prop-select]]
+      [:div.col-md-8 [phones-list phones search @order-prop-state]]
       ]]))
 
 (defn search-cpnt [search]
@@ -69,10 +79,19 @@ Try and call this function from the ClojureScript REPL."
             :value search
             :on-change (fn [e] (swap! state update-search (-> e .-target .-value)))}]])
 
+(defn order-prop-select []
+  [:select {:value @order-prop-state
+            :on-change #(reset! order-prop-state (-> % .-target .-value keyword))}
+   [:option {:value :name} "Alphabetical"]
+   [:option {:value :age} "Newest"]
+   ])
+
 (defn phones-list "An unordered list of phones" 
-  [phones-list search]
+  [phones-list search order-prop]
   [:ul.phones
-   (for [phone (->> phones-list (filter #(matches-search? search %)))]
+   (for [phone (->> phones-list 
+                 (filter #(matches-search? search %))
+                 (sort-by order-prop))]
      ^{:key (:name phone)} [phone-item phone]
      )])
 
