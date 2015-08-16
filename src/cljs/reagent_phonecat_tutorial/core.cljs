@@ -1,7 +1,11 @@
 (ns reagent-phonecat.core
-    (:require [reagent.core :as rg]
-              [clojure.string :as str]
-              [ajax.core :as ajx])
+  (:import [goog History])  
+  (:require [reagent.core :as rg]
+            [clojure.string :as str]
+            [ajax.core :as ajx]
+            [bidi.bidi :as b :include-macros true]
+            [goog.events :as events]
+            [goog.history.EventType :as EventType])
     )
 
 (enable-console-print!)
@@ -42,7 +46,12 @@ Try and call this function from the ClojureScript REPL."
   (rg/atom {:phones []
             :search ""
             :order-prop :name
+            
+            :navigation {:page :phones ;; can be any one of #{:phones :phone}
+                         :param {}}
             }))
+
+(def navigational-state (rg/cursor state [:navigation]))
 
 
 (def order-prop-state (rg/cursor state [:order-prop]))
@@ -64,16 +73,82 @@ Try and call this function from the ClojureScript REPL."
 
 
 ;; --------------------------------------------
+;; Routing 
+
+;; we declare the routes with a tree-ish data structure which leaves identify our pages
+(def routes 
+  ["/phones" {"" :phones
+              ["/" :phone-id] :phone}])
+
+;; then we leverage bidi functions to match against this data structure
+(defn url-to-nav [routes path]
+  (let [{:keys [handler route-params]} (b/match-route routes path)]
+    {:page handler :params route-params}))
+
+(defn nav-to-url [routes {:keys [page params]}]
+  (apply b/path-for routes page (->> params seq flatten)))
+
+(comment 
+  (url-to-nav routes "/phones")
+  => {:page :phones :params nil}
+  (nav-to-url routes {:page :phones})
+  => "/phones" 
+  
+  (url-to-nav routes "/phones/motorola-xoom")
+  => {:page :phone :params {:phone-id "motorola-xoom"}}
+  (nav-to-url routes {:page :phone :params {:phone-id "motorola-xoom"}})
+  => "/phones/motorola-xoom"
+  )
+
+
+(def h (History.))
+
+(defn navigate-to! [routes nav]
+  (.setToken h (nav-to-url routes nav)))
+
+(defn hook-browser-navigation! "Listen to navigation events and dispatches a route change accordingly through secretary."
+  [routes]
+  (doto h
+    (events/listen
+      EventType/NAVIGATE
+      (fn [event]
+        (let [path (.-token event)
+              {:keys [page params] :as nav} (url-to-nav routes path)]
+          (if page
+            (reset! navigational-state nav)
+            (do
+              (.warn js/console (str "No route matches token " path ", redirecting to /phones"))
+              (navigate-to! routes {:page :phones}))
+            ))
+        ))
+    (.setEnabled true)))
+
+;; --------------------------------------------
 ;; View components
 
 (declare ;; here we declare our components to define their in an order that feels natural.  
   top-cpnt 
-    search-cpnt
-    order-prop-select
-    phones-list 
-      phone-item)
+    phones-list-page
+      search-cpnt
+      order-prop-select
+      phones-list 
+        phone-item
+    phone-page)
+
+(defn- find-phone-by-id [phones phone-id]
+  (->> phones (filter #(= (:id %) phone-id)) first))
 
 (defn top-cpnt []
+  (let [{:keys [page params]} @navigational-state]
+    (case page
+      :phones [phones-list-page]
+      :phone (let [phone-id (:phone-id params)
+                   phone (find-phone-by-id (:phones @state) phone-id)]
+               [phone-page phone])
+      [:div "This page does not exist"]
+      )))
+
+(defn phones-list-page []
   (let [{:keys [phones search]} @state]
     [:div.container-fluid
      [:div.row
@@ -84,6 +159,10 @@ Try and call this function from the ClojureScript REPL."
        [order-prop-select]]
       [:div.col-md-8 [phones-list phones search @order-prop-state]]
       ]]))
+
+(defn phone-page [phone]
+  (.log js/console "phone" phone)
+  [:div "TBD: detail view for " [:span (:id phone)]])
 
 (defn search-cpnt [search]
   [:span 
@@ -124,4 +203,5 @@ Try and call this function from the ClojureScript REPL."
 
 (defn init! []
   (load-phones! state)
+  (hook-browser-navigation! routes)
   (mount-root))

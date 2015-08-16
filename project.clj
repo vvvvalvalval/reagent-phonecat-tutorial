@@ -27,6 +27,7 @@
                  [cljsjs/react "0.13.3-0"]
                  [reagent "0.5.0"]
                  [cljs-ajax "0.3.14"] 
+                 [bidi "1.20.3"]
                  ]
 
   ;; --------------------------------------------------------------------------------
@@ -78,6 +79,7 @@
 
                    :figwheel {:http-server-root "public"
                               :server-port 3449
+                              :nrepl-port 7888
                               :css-dirs ["resources/public/css"]
                               :ring-handler reagent-phonecat.handler/app}
 
