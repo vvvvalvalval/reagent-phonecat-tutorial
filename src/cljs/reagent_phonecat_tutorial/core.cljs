@@ -47,8 +47,10 @@ Try and call this function from the ClojureScript REPL."
             :search ""
             :order-prop :name
             
+            :phone-by-id {}
+            
             :navigation {:page :phones ;; can be any one of #{:phones :phone}
-                         :param {}}
+                         :params {}}
             }))
 
 (def navigational-state (rg/cursor state [:navigation]))
@@ -71,6 +73,29 @@ Try and call this function from the ClojureScript REPL."
             :error-handler (fn [details] (.warn js/console (str "Failed to refresh phones from server: " details)))
             :response-format :json, :keywords? true}))
 
+(defn load-phone-details! "Fetches the list of phones from the server and updates the state atom with it" 
+  [state phone-id]
+  (ajx/GET (str "/phones/" phone-id ".json")
+           {:handler (fn [phone-data] (swap! state assoc-in [:phone-by-id phone-id] phone-data))
+            :error-handler (fn [details] 
+                             (.warn js/console (str "Failed to fetch phone data: " details)))
+            :response-format :json, :keywords? true}))
+
+(defmulti load-page-data! (fn [page params] page))
+
+(defn watch-nav-changes! []
+  (add-watch navigational-state ::watch-nav-changes
+             (fn [_ _ old-state new-state]
+               (when-not (= old-state new-state)
+                 (let [{:keys [page params]} new-state]
+                   (load-page-data! page params))))
+             ))
+
+(defmethod load-page-data! :phones 
+  [_ _] (load-phones! state))
+
+(defmethod load-page-data! :phone 
+  [_ {:keys [phone-id]}] (load-phone-details! state phone-id))
 
 ;; --------------------------------------------
 ;; Routing 
@@ -133,7 +158,10 @@ Try and call this function from the ClojureScript REPL."
       order-prop-select
       phones-list 
         phone-item
-    phone-page)
+    phone-page
+      phone-detail-cpnt
+        phone-spec-cpnt
+        checkmark)
 
 (defn- find-phone-by-id [phones phone-id]
   (->> phones (filter #(= (:id %) phone-id)) first))
@@ -142,9 +170,8 @@ Try and call this function from the ClojureScript REPL."
   (let [{:keys [page params]} @navigational-state]
     (case page
       :phones [phones-list-page]
-      :phone (let [phone-id (:phone-id params)
-                   phone (find-phone-by-id (:phones @state) phone-id)]
-               [phone-page phone])
+      :phone (let [phone-id (:phone-id params)]
+               [phone-page phone-id])
       [:div "This page does not exist"]
       )))
 
@@ -160,9 +187,58 @@ Try and call this function from the ClojureScript REPL."
       [:div.col-md-8 [phones-list phones search @order-prop-state]]
       ]]))
 
-(defn phone-page [phone]
-  (.log js/console "phone" phone)
-  [:div "TBD: detail view for " [:span (:id phone)]])
+(defn phone-page [phone-id]
+  (let [phone-cursor (rg/cursor state [:phone-by-id phone-id])
+        phone @phone-cursor]
+    (cond 
+      phone [phone-detail-cpnt phone] 
+      :not-loaded-yet [:div])))
+
+(defn phone-detail-cpnt [phone]
+  (let [{:keys [images name description availability additionalFeatures]
+         {:keys [ram flash]} :storage
+         {:keys [type talkTime standbyTime]} :battery
+         {:keys [cell wifi bluetooth infrared gps]} :connectivity
+         {:keys [os ui]} :android
+         {:keys [dimensions weight]} :sizeAndWeight
+         {:keys [screenSize screenResolution touchScreen]} :display
+         {:keys [cpu usb audioJack fmRadio accelerometer]} :hardware
+         {:keys [primary features]} :camera
+         } phone]
+    [:div
+     [:img.phone {:src (first images)}]
+     [:h1 name]
+     [:p description]
+
+     [:ul.phone-thumbs
+      (for [img images]
+        [:li [:img {:src img}]])]
+     
+     [:ul.specs
+      [phone-spec-cpnt "Availability and Networks" [(cons "Availability" availability)]]
+      [phone-spec-cpnt "Battery" [["Type" type] ["Talk Time" talkTime] ["Standby time (max)" standbyTime]]]
+      [phone-spec-cpnt "Storage and Memory" [["RAM" ram] ["Internal Storage" flash]]]
+      [phone-spec-cpnt "Connectivity" [["Network Support" cell] ["WiFi" wifi] ["Bluetooth" bluetooth] ["Infrared" (checkmark infrared)] ["GPS" (checkmark gps)]]]
+      [phone-spec-cpnt "Android" [["OS Version" os] ["UI" ui]]]
+      [phone-spec-cpnt "Size and Weight" [(cons "Dimensions" dimensions) ["Weight" weight]]]
+      [phone-spec-cpnt "Display" [["Screen size" screenSize] ["Screen resolution" screenResolution] ["Touch screen" (checkmark touchScreen)]]]
+      [phone-spec-cpnt "Hardware" [["CPU" cpu] ["USB" usb] ["Audio / headphone jack" audioJack] ["FM Radio" (checkmark fmRadio)] ["Accelerometer" (checkmark accelerometer)]]]
+      [phone-spec-cpnt "Camera" [["Primary" primary] ["Features" (str/join ", " features)]]]
+      [:li
+       [:span "Additional Features"]
+       [:dd additionalFeatures]]
+      ]
+     ]))
+
+(defn phone-spec-cpnt [title kvs]
+  [:li
+   [:span title]
+   [:dl (->> kvs (mapcat (fn [[t & ds]]
+                           [[:dt t] (for [d ds][:dd d])]
+                           )))]])
+
+(defn checkmark [input] (if input \u2713 \u2718))
+
 
 (defn search-cpnt [search]
   [:span 
@@ -202,6 +278,8 @@ Try and call this function from the ClojureScript REPL."
     (.getElementById js/document "app")))
 
 (defn init! []
-  (load-phones! state)
   (hook-browser-navigation! routes)
+  (let [{:keys [page params]} @navigational-state]
+    (load-page-data! page params))
+  (watch-nav-changes!)
   (mount-root))
