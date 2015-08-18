@@ -195,7 +195,10 @@ Try and call this function from the ClojureScript REPL."
       :not-loaded-yet [:div])))
 
 (defn phone-detail-cpnt [phone]
-  (let [{:keys [images name description availability additionalFeatures]
+  (let [{:keys [images]} phone
+        local-state (rg/atom {:main-image (first images)})]
+    (fn [phone]
+      (let [{:keys [images name description availability additionalFeatures]
          {:keys [ram flash]} :storage
          {:keys [type talkTime standbyTime]} :battery
          {:keys [cell wifi bluetooth infrared gps]} :connectivity
@@ -206,13 +209,13 @@ Try and call this function from the ClojureScript REPL."
          {:keys [primary features]} :camera
          } phone]
     [:div
-     [:img.phone {:src (first images)}]
+     [:img.phone {:src (:main-image @local-state)}]
      [:h1 name]
      [:p description]
 
      [:ul.phone-thumbs
       (for [img images]
-        [:li [:img {:src img}]])]
+        [:li [:img {:src img :on-click #(swap! local-state assoc :main-image img)}]])]
      
      [:ul.specs
       [phone-spec-cpnt "Availability and Networks" [(cons "Availability" availability)]]
@@ -228,7 +231,7 @@ Try and call this function from the ClojureScript REPL."
        [:span "Additional Features"]
        [:dd additionalFeatures]]
       ]
-     ]))
+     ]))))
 
 (defn phone-spec-cpnt [title kvs]
   [:li
@@ -238,7 +241,6 @@ Try and call this function from the ClojureScript REPL."
                            )))]])
 
 (defn checkmark [input] (if input \u2713 \u2718))
-
 
 (defn search-cpnt [search]
   [:span 
