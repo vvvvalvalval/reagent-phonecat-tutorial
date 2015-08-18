@@ -191,7 +191,7 @@ Try and call this function from the ClojureScript REPL."
   (let [phone-cursor (rg/cursor state [:phone-by-id phone-id])
         phone @phone-cursor]
     (cond 
-      phone [phone-detail-cpnt phone] 
+      phone ^{:key phone-id} [phone-detail-cpnt phone] 
       :not-loaded-yet [:div])))
 
 (defn phone-detail-cpnt [phone]
