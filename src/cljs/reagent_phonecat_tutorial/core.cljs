@@ -25,14 +25,14 @@ Try and call this function from the ClojureScript REPL."
   (print "Hello," (or name "World") "!"))
 
 ;; --------------------------------------------
-;; Utility data 
+;; Utility
 
 (defn throw-err "Accept a value and returns it, unless it is an Error, in which case it throws it."
   [v]
   (if (instance? js/Error v) (throw v) v))
 
 ;; --------------------------------------------
-;; Application data 
+;; Application data
 
 (def hardcoded-phones-data [{:name "Nexus S"
                              :description "Fast just got faster with Nexus S."
@@ -62,7 +62,7 @@ Try and call this function from the ClojureScript REPL."
 ;; --------------------------------------------
 ;; State
 
-(def state "Reagent atom that holds our global application state." 
+(defonce state
   (rg/atom {:phones []
             :search ""
             :order-prop :name
@@ -191,17 +191,17 @@ Try and call this function from the ClojureScript REPL."
 ;; --------------------------------------------
 ;; View components
 
-(declare ;; here we declare our components to define their in an order that feels natural.  
-  top-cpnt 
-    phones-list-page
-      search-cpnt
-      order-prop-select
-      phones-list 
-        phone-item
-    phone-page
-      phone-detail-cpnt
-        phone-carousel
-        phone-spec-cpnt
+(declare ;; here we declare our components to define their in an order that feels natural.
+  <top-cpnt>
+    <phones-list-page>
+      <search-cpnt>
+      <order-prop-select>
+      <phones-list>
+        <phone-item>
+    <phone-page>
+      <phone-detail-cpnt>
+        <phone-carousel>
+        <phone-spec-cpnt>
         checkmark)
 
 (def CSSTransitionGroup (rg/adapt-react-class (.. js/React -addons -CSSTransitionGroup)))
@@ -209,38 +209,74 @@ Try and call this function from the ClojureScript REPL."
 (defn- find-phone-by-id [phones phone-id]
   (->> phones (filter #(= (:id %) phone-id)) first))
 
-(defn top-cpnt []
+(defn <top-cpnt> []
   (let [{:keys [page params]} @navigational-state]
     [:div.container-fluid
      [:div.view-container
       [CSSTransitionGroup {:transition-name "view-frame"}
        (case page
-         :phones ^{:key :phones} [phones-list-page]
+         :phones ^{:key :phones} [<phones-list-page>]
          :phone (let [phone-id (:phone-id params)]
-                  ^{:key :phone} [phone-page phone-id])
+                  ^{:key :phone} [<phone-page> phone-id])
          ^{:key :not-found} [:div "This page does not exist"]
-       )]]]))
+         )
+       ]]
+   ]))
 
-(defn phones-list-page []
+(defn <phones-list-page> []
   (let [{:keys [phones search]} @state]
-    [:div
-     [:div.row
-      [:div.col-md-2 
-       [search-cpnt search]
-       [:br]
-       "Sort by:"
-       [order-prop-select]]
-      [:div.col-md-8 [phones-list phones search @order-prop-state]]
-      ]]))
+    [:div.row
+     [:div.col-md-2
+      [<search-cpnt> search]
+      [:br]
+      "Sort by:"
+      [<order-prop-select>]]
+     [:div.col-md-8 [<phones-list> phones search @order-prop-state]]
+     ]))
 
-(defn phone-page [phone-id]
+
+(defn <search-cpnt> [search]
+  [:span
+   "Search: "
+   [:input {:type "text"
+            :value search
+            :on-change (fn [e] (swap! state update-search (-> e .-target .-value)))}]])
+
+(defn <order-prop-select> []
+  [:select {:value @order-prop-state
+            :on-change #(reset! order-prop-state (-> % .-target .-value keyword))}
+   [:option {:value :name} "Alphabetical"]
+   [:option {:value :age} "Newest"]
+   ])
+
+(defn <phones-list> "An unordered list of phones"
+  [phones-list search order-prop]
+  [:ul.phones
+   [CSSTransitionGroup {:transition-name "phone-listing"}
+    (for [phone (->> phones-list
+                     (filter #(matches-search? search %))
+                     (sort-by order-prop))]
+      ^{:key (:id phone)} [<phone-item> phone]
+      )]])
+
+(defn <phone-item> "An phone item component"
+  [{:keys [name snippet id imageUrl] :as phone}]
+  (let [phone-page-href (str "#/phones/" id)]
+    [:li {:class "thumbnail phone-listing"}
+     [:a.thumb {:href phone-page-href} [:img {:src imageUrl}]]
+     [:a {:href phone-page-href} name]
+     [:p snippet]]))
+
+
+
+(defn <phone-page> [phone-id]
   (let [phone-cursor (rg/cursor state [:phone-by-id phone-id])
         phone @phone-cursor]
     (cond 
-      phone ^{:key phone-id} [phone-detail-cpnt phone] 
-      :not-loaded-yet [:div ])))
+      phone ^{:key phone-id} [<phone-detail-cpnt> phone]
+      :not-loaded-yet [:div])))
 
-(defn phone-detail-cpnt [phone]
+(defn <phone-detail-cpnt> [phone]
   (let [{:keys [images name description availability additionalFeatures]
          {:keys [ram flash]} :storage
          {:keys [type talkTime standbyTime]} :battery
@@ -252,45 +288,45 @@ Try and call this function from the ClojureScript REPL."
          {:keys [primary features]} :camera
          } phone]
     [:div
-     [:span.phone-carousel-container [phone-carousel images]]
+     [:span.phone-carousel-container [<phone-carousel> images]]
      [:h1 name]
      [:p description]
-     
+
      [:ul.specs
-      [phone-spec-cpnt "Availability and Networks" [(cons "Availability" availability)]]
-      [phone-spec-cpnt "Battery" [["Type" type] ["Talk Time" talkTime] ["Standby time (max)" standbyTime]]]
-      [phone-spec-cpnt "Storage and Memory" [["RAM" ram] ["Internal Storage" flash]]]
-      [phone-spec-cpnt "Connectivity" [["Network Support" cell] ["WiFi" wifi] ["Bluetooth" bluetooth] ["Infrared" (checkmark infrared)] ["GPS" (checkmark gps)]]]
-      [phone-spec-cpnt "Android" [["OS Version" os] ["UI" ui]]]
-      [phone-spec-cpnt "Size and Weight" [(cons "Dimensions" dimensions) ["Weight" weight]]]
-      [phone-spec-cpnt "Display" [["Screen size" screenSize] ["Screen resolution" screenResolution] ["Touch screen" (checkmark touchScreen)]]]
-      [phone-spec-cpnt "Hardware" [["CPU" cpu] ["USB" usb] ["Audio / headphone jack" audioJack] ["FM Radio" (checkmark fmRadio)] ["Accelerometer" (checkmark accelerometer)]]]
-      [phone-spec-cpnt "Camera" [["Primary" primary] ["Features" (str/join ", " features)]]]
+      [<phone-spec-cpnt> "Availability and Networks" [(cons "Availability" availability)]]
+      [<phone-spec-cpnt> "Battery" [["Type" type] ["Talk Time" talkTime] ["Standby time (max)" standbyTime]]]
+      [<phone-spec-cpnt> "Storage and Memory" [["RAM" ram] ["Internal Storage" flash]]]
+      [<phone-spec-cpnt> "Connectivity" [["Network Support" cell] ["WiFi" wifi] ["Bluetooth" bluetooth] ["Infrared" (checkmark infrared)] ["GPS" (checkmark gps)]]]
+      [<phone-spec-cpnt> "Android" [["OS Version" os] ["UI" ui]]]
+      [<phone-spec-cpnt> "Size and Weight" [(cons "Dimensions" dimensions) ["Weight" weight]]]
+      [<phone-spec-cpnt> "Display" [["Screen size" screenSize] ["Screen resolution" screenResolution] ["Touch screen" (checkmark touchScreen)]]]
+      [<phone-spec-cpnt> "Hardware" [["CPU" cpu] ["USB" usb] ["Audio / headphone jack" audioJack] ["FM Radio" (checkmark fmRadio)] ["Accelerometer" (checkmark accelerometer)]]]
+      [<phone-spec-cpnt> "Camera" [["Primary" primary] ["Features" (str/join ", " features)]]]
       [:li
        [:span "Additional Features"]
        [:dd additionalFeatures]]
       ]
      ]))
 
-(def phone-carousel
-  (rg/create-class 
+(def <phone-carousel>
+  (rg/create-class
     ;; we can still use our classic Reagent API for the rendering function.
-    {:reagent-render 
+    {:reagent-render
      (fn [images]
        [:div {:id "phone-pictures-carousel" :class "carousel slide"}
         [:ol {:class "carousel-indicators"}
-         (->> images 
-           (map-indexed (fn [i _]
-                          ^{:key i} [:li {:data-target "#phone-pictures-carousel" :data-slide-to (str i) :class (when (= i 0) "active")}]))
-           doall)]
-        
+         (->> images
+              (map-indexed (fn [i _]
+                             ^{:key i} [:li {:data-target "#phone-pictures-carousel" :data-slide-to (str i) :class (when (= i 0) "active")}]))
+              doall)]
+
         [:div {:class "carousel-inner" :role "listbox"}
-         (->> images 
-           (map-indexed (fn [i img]
-                          ^{:key i} [:div {:class (str "item " (when (= i 0) "active"))}
-                                     [:img.phone-carousel-img {:src img}]]))
-           doall)]
-      
+         (->> images
+              (map-indexed (fn [i img]
+                             ^{:key i} [:div {:class (str "item " (when (= i 0) "active"))}
+                                        [:img.phone-carousel-img {:src img}]]))
+              doall)]
+
         [:a {:class "left carousel-control" :href "#phone-pictures-carousel" :role "button" :data-slide "prev"}
          [:span {:class "glyphicon glyphicon-chevron-left" :aria-hidden "true"}]
          [:span {:class "sr-only"} "Previous"]]
@@ -298,7 +334,7 @@ Try and call this function from the ClojureScript REPL."
          [:span {:class "glyphicon glyphicon-chevron-right" :aria-hidden "true"}]
          [:span {:class "sr-only"} "Next"]]
         ])
-     
+
      ;; once the component is mounted onto the DOM, we can use this lifecycle method to access the native DOM
      :component-did-mount (fn [this]
                             (let [e (js/jQuery (rg/dom-node this))]
@@ -306,7 +342,7 @@ Try and call this function from the ClojureScript REPL."
                               ))
      }))
 
-(defn phone-spec-cpnt [title kvs]
+(defn <phone-spec-cpnt> [title kvs]
   [:li
    [:span title]
    [:dl (->> kvs (mapcat (fn [[t & ds]]
@@ -315,42 +351,12 @@ Try and call this function from the ClojureScript REPL."
 
 (defn checkmark [input] (if input \u2713 \u2718))
 
-(defn search-cpnt [search]
-  [:span 
-   "Search: "
-   [:input {:type "text" 
-            :value search
-            :on-change (fn [e] (swap! state update-search (-> e .-target .-value)))}]])
 
-(defn order-prop-select []
-  [:select {:value @order-prop-state
-            :on-change #(reset! order-prop-state (-> % .-target .-value keyword))}
-   [:option {:value :name} "Alphabetical"]
-   [:option {:value :age} "Newest"]
-   ])
-
-(defn phones-list "An unordered list of phones" 
-  [phones-list search order-prop]
-  [:ul.phones
-   [CSSTransitionGroup {:transition-name "phone-listing"}
-    (for [phone (->> phones-list 
-                 (filter #(matches-search? search %))
-                 (sort-by order-prop))]
-     ^{:key (:name phone)} [phone-item phone]
-     )]])
-
-(defn phone-item "An phone item component"
-  [{:keys [name snippet id imageUrl] :as phone}]
-  (let [phone-page-href (str "#/phones/" id)]
-    [:li {:class "thumbnail phone-listing"}
-     [:a.thumb {:href phone-page-href} [:img {:src imageUrl}]]
-     [:a {:href phone-page-href} name]
-     [:p snippet]]))
 
 (defn mount-root "Creates the application view and injects ('mounts') it into the root element." 
   []
   (rg/render 
-    [top-cpnt]
+    [<top-cpnt>]
     (.getElementById js/document "app")))
 
 (defn init! []
