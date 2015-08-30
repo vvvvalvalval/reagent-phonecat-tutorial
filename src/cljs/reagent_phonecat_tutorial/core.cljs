@@ -16,7 +16,7 @@ Try and call this function from the ClojureScript REPL."
   (print "Hello," (or name "World") "!"))
 
 ;; --------------------------------------------
-;; Application data 
+;; Application data
 
 (def hardcoded-phones-data [{:name "Nexus S"
                              :description "Fast just got faster with Nexus S."
@@ -42,7 +42,7 @@ Try and call this function from the ClojureScript REPL."
 ;; --------------------------------------------
 ;; State
 
-(def state "Reagent atom that holds our global application state." 
+(defonce state
   (rg/atom {:phones []
             :search ""
             :order-prop :name
@@ -152,49 +152,83 @@ Try and call this function from the ClojureScript REPL."
 ;; View components
 
 (declare ;; here we declare our components to define their in an order that feels natural.  
-  top-cpnt 
-    phones-list-page
-      search-cpnt
-      order-prop-select
-      phones-list 
-        phone-item
-    phone-page
-      phone-detail-cpnt
-        phone-spec-cpnt
+  <top-cpnt>
+    <phones-list-page>
+      <search-cpnt>
+      <order-prop-select>
+      <phones-list>
+        <phone-item>
+    <phone-page>
+      <phone-detail-cpnt>
+        <phone-spec-cpnt>
         checkmark)
+
 
 (defn- find-phone-by-id [phones phone-id]
   (->> phones (filter #(= (:id %) phone-id)) first))
 
-(defn top-cpnt []
+(defn <top-cpnt> []
   (let [{:keys [page params]} @navigational-state]
-    (case page
-      :phones [phones-list-page]
-      :phone (let [phone-id (:phone-id params)]
-               [phone-page phone-id])
-      [:div "This page does not exist"]
-      )))
-
-(defn phones-list-page []
-  (let [{:keys [phones search]} @state]
     [:div.container-fluid
-     [:div.row
-      [:div.col-md-2 
-       [search-cpnt search]
-       [:br]
-       "Sort by:"
-       [order-prop-select]]
-      [:div.col-md-8 [phones-list phones search @order-prop-state]]
-      ]]))
+     (case page
+       :phones [<phones-list-page>]
+       :phone (let [phone-id (:phone-id params)]
+                [<phone-page> phone-id])
+       [:div "This page does not exist"]
+       )]))
 
-(defn phone-page [phone-id]
+(defn <phones-list-page> []
+  (let [{:keys [phones search]} @state]
+    [:div.row
+     [:div.col-md-2
+      [<search-cpnt> search]
+      [:br]
+      "Sort by:"
+      [<order-prop-select>]]
+     [:div.col-md-8 [<phones-list> phones search @order-prop-state]]
+     ]))
+
+
+(defn <search-cpnt> [search]
+  [:span
+   "Search: "
+   [:input {:type "text"
+            :value search
+            :on-change (fn [e] (swap! state update-search (-> e .-target .-value)))}]])
+
+(defn <order-prop-select> []
+  [:select {:value @order-prop-state
+            :on-change #(reset! order-prop-state (-> % .-target .-value keyword))}
+   [:option {:value :name} "Alphabetical"]
+   [:option {:value :age} "Newest"]
+   ])
+
+(defn <phones-list> "An unordered list of phones"
+  [phones-list search order-prop]
+  [:ul.phones
+   (for [phone (->> phones-list
+                    (filter #(matches-search? search %))
+                    (sort-by order-prop))]
+     ^{:key (:id phone)} [<phone-item> phone]
+     )])
+
+(defn <phone-item> "An phone item component"
+  [{:keys [name snippet id imageUrl] :as phone}]
+  (let [phone-page-href (str "#/phones/" id)]
+    [:li {:class "thumbnail"}
+     [:a.thumb {:href phone-page-href} [:img {:src imageUrl}]]
+     [:a {:href phone-page-href} name]
+     [:p snippet]]))
+
+
+(defn <phone-page> [phone-id]
   (let [phone-cursor (rg/cursor state [:phone-by-id phone-id])
         phone @phone-cursor]
     (cond 
-      phone [phone-detail-cpnt phone] 
+      phone [<phone-detail-cpnt> phone] 
       :not-loaded-yet [:div])))
 
-(defn phone-detail-cpnt [phone]
+(defn <phone-detail-cpnt> [phone]
   (let [{:keys [images name description availability additionalFeatures]
          {:keys [ram flash]} :storage
          {:keys [type talkTime standbyTime]} :battery
@@ -212,69 +246,39 @@ Try and call this function from the ClojureScript REPL."
 
      [:ul.phone-thumbs
       (for [img images]
-        [:li [:img {:src img}]])]
+        ^{:key img} [:li [:img {:src img}]])]
      
      [:ul.specs
-      [phone-spec-cpnt "Availability and Networks" [(cons "Availability" availability)]]
-      [phone-spec-cpnt "Battery" [["Type" type] ["Talk Time" talkTime] ["Standby time (max)" standbyTime]]]
-      [phone-spec-cpnt "Storage and Memory" [["RAM" ram] ["Internal Storage" flash]]]
-      [phone-spec-cpnt "Connectivity" [["Network Support" cell] ["WiFi" wifi] ["Bluetooth" bluetooth] ["Infrared" (checkmark infrared)] ["GPS" (checkmark gps)]]]
-      [phone-spec-cpnt "Android" [["OS Version" os] ["UI" ui]]]
-      [phone-spec-cpnt "Size and Weight" [(cons "Dimensions" dimensions) ["Weight" weight]]]
-      [phone-spec-cpnt "Display" [["Screen size" screenSize] ["Screen resolution" screenResolution] ["Touch screen" (checkmark touchScreen)]]]
-      [phone-spec-cpnt "Hardware" [["CPU" cpu] ["USB" usb] ["Audio / headphone jack" audioJack] ["FM Radio" (checkmark fmRadio)] ["Accelerometer" (checkmark accelerometer)]]]
-      [phone-spec-cpnt "Camera" [["Primary" primary] ["Features" (str/join ", " features)]]]
+      [<phone-spec-cpnt> "Availability and Networks" [(cons "Availability" availability)]]
+      [<phone-spec-cpnt> "Battery" [["Type" type] ["Talk Time" talkTime] ["Standby time (max)" standbyTime]]]
+      [<phone-spec-cpnt> "Storage and Memory" [["RAM" ram] ["Internal Storage" flash]]]
+      [<phone-spec-cpnt> "Connectivity" [["Network Support" cell] ["WiFi" wifi] ["Bluetooth" bluetooth] ["Infrared" (checkmark infrared)] ["GPS" (checkmark gps)]]]
+      [<phone-spec-cpnt> "Android" [["OS Version" os] ["UI" ui]]]
+      [<phone-spec-cpnt> "Size and Weight" [(cons "Dimensions" dimensions) ["Weight" weight]]]
+      [<phone-spec-cpnt> "Display" [["Screen size" screenSize] ["Screen resolution" screenResolution] ["Touch screen" (checkmark touchScreen)]]]
+      [<phone-spec-cpnt> "Hardware" [["CPU" cpu] ["USB" usb] ["Audio / headphone jack" audioJack] ["FM Radio" (checkmark fmRadio)] ["Accelerometer" (checkmark accelerometer)]]]
+      [<phone-spec-cpnt> "Camera" [["Primary" primary] ["Features" (str/join ", " features)]]]
       [:li
        [:span "Additional Features"]
        [:dd additionalFeatures]]
       ]
      ]))
 
-(defn phone-spec-cpnt [title kvs]
+(defn <phone-spec-cpnt> [title kvs]
   [:li
    [:span title]
    [:dl (->> kvs (mapcat (fn [[t & ds]]
-                           [[:dt t] (for [d ds][:dd d])]
+                           [^{:key t} [:dt t] (for [d ds] ^{:key d} [:dd d])]
                            )))]])
 
 (defn checkmark [input] (if input \u2713 \u2718))
 
 
-(defn search-cpnt [search]
-  [:span 
-   "Search: "
-   [:input {:type "text" 
-            :value search
-            :on-change (fn [e] (swap! state update-search (-> e .-target .-value)))}]])
-
-(defn order-prop-select []
-  [:select {:value @order-prop-state
-            :on-change #(reset! order-prop-state (-> % .-target .-value keyword))}
-   [:option {:value :name} "Alphabetical"]
-   [:option {:value :age} "Newest"]
-   ])
-
-(defn phones-list "An unordered list of phones" 
-  [phones-list search order-prop]
-  [:ul.phones
-   (for [phone (->> phones-list 
-                 (filter #(matches-search? search %))
-                 (sort-by order-prop))]
-     ^{:key (:name phone)} [phone-item phone]
-     )])
-
-(defn phone-item "An phone item component"
-  [{:keys [name snippet id imageUrl] :as phone}]
-  (let [phone-page-href (str "#/phones/" id)]
-    [:li {:class "thumbnail"}
-     [:a.thumb {:href phone-page-href} [:img {:src imageUrl}]]
-     [:a {:href phone-page-href} name]
-     [:p snippet]]))
 
 (defn mount-root "Creates the application view and injects ('mounts') it into the root element." 
   []
   (rg/render 
-    [top-cpnt]
+    [<top-cpnt>]
     (.getElementById js/document "app")))
 
 (defn init! []
