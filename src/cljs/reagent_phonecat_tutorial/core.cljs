@@ -8,7 +8,13 @@
             [bidi.bidi :as b :include-macros true]
             [goog.events :as events]
             [goog.history.EventType :as EventType]
-            [cljs.core.async :as a])
+            [cljs.core.async :as a]
+            [cljsjs.react :as react])
+  )
+
+(comment 
+  (in-ns 'reagent-phonecat.core)
+  
   )
 
 (enable-console-print!)
@@ -197,21 +203,26 @@ Try and call this function from the ClojureScript REPL."
         phone-spec-cpnt
         checkmark)
 
+(def CSSTransitionGroup (rg/adapt-react-class (.. js/React -addons -CSSTransitionGroup)))
+
 (defn- find-phone-by-id [phones phone-id]
   (->> phones (filter #(= (:id %) phone-id)) first))
 
 (defn top-cpnt []
   (let [{:keys [page params]} @navigational-state]
-    (case page
-      :phones [phones-list-page]
-      :phone (let [phone-id (:phone-id params)]
-               [phone-page phone-id])
-      [:div "This page does not exist"]
-      )))
+    [:div.container-fluid
+     [:div.view-container
+      [CSSTransitionGroup {:transition-name "view-frame"}
+       (case page
+         :phones ^{:key :phones} [phones-list-page]
+         :phone (let [phone-id (:phone-id params)]
+                  ^{:key :phone} [phone-page phone-id])
+         ^{:key :not-found} [:div "This page does not exist"]
+       )]]]))
 
 (defn phones-list-page []
   (let [{:keys [phones search]} @state]
-    [:div.container-fluid
+    [:div
      [:div.row
       [:div.col-md-2 
        [search-cpnt search]
@@ -226,7 +237,7 @@ Try and call this function from the ClojureScript REPL."
         phone @phone-cursor]
     (cond 
       phone ^{:key phone-id} [phone-detail-cpnt phone] 
-      :not-loaded-yet [:div])))
+      :not-loaded-yet [:div ])))
 
 (defn phone-detail-cpnt [phone]
   (let [{:keys [images]} phone
@@ -249,7 +260,7 @@ Try and call this function from the ClojureScript REPL."
 
      [:ul.phone-thumbs
       (for [img images]
-        [:li [:img {:src img :on-click #(swap! local-state assoc :main-image img)}]])]
+        ^{:key img} [:li [:img {:src img :on-click #(swap! local-state assoc :main-image img)}]])]
      
      [:ul.specs
       [phone-spec-cpnt "Availability and Networks" [(cons "Availability" availability)]]
@@ -271,7 +282,7 @@ Try and call this function from the ClojureScript REPL."
   [:li
    [:span title]
    [:dl (->> kvs (mapcat (fn [[t & ds]]
-                           [[:dt t] (for [d ds][:dd d])]
+                           [^{:key t} [:dt t] (for [d ds] ^{:key d} [:dd d])]
                            )))]])
 
 (defn checkmark [input] (if input \u2713 \u2718))
@@ -293,16 +304,17 @@ Try and call this function from the ClojureScript REPL."
 (defn phones-list "An unordered list of phones" 
   [phones-list search order-prop]
   [:ul.phones
-   (for [phone (->> phones-list 
+   [CSSTransitionGroup {:transition-name "phone-listing"}
+    (for [phone (->> phones-list 
                  (filter #(matches-search? search %))
                  (sort-by order-prop))]
      ^{:key (:name phone)} [phone-item phone]
-     )])
+     )]])
 
 (defn phone-item "An phone item component"
   [{:keys [name snippet id imageUrl] :as phone}]
   (let [phone-page-href (str "#/phones/" id)]
-    [:li {:class "thumbnail"}
+    [:li {:class "thumbnail phone-listing"}
      [:a.thumb {:href phone-page-href} [:img {:src imageUrl}]]
      [:a {:href phone-page-href} name]
      [:p snippet]]))

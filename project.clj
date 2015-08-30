@@ -24,7 +24,8 @@
                  
                  ;; client-side dependencies
                  [org.webjars/bootstrap "3.1.0"]
-                 [cljsjs/react "0.13.3-0"]
+                 #_ [cljsjs/react "0.13.3-0"]
+                 [cljsjs/react-with-addons "0.13.3-0"]
                  [reagent "0.5.0"]
                  [cljs-ajax "0.3.14"] 
                  [bidi "1.20.3"]
