@@ -23,10 +23,10 @@
                  [prone "0.8.2"]
                  
                  ;; client-side dependencies
+                 [org.webjars/jquery "2.1.4"]
                  [org.webjars/bootstrap "3.1.0"]
-                 #_ [cljsjs/react "0.13.3-0"]
                  [cljsjs/react-with-addons "0.13.3-0"]
-                 [reagent "0.5.0"]
+                 [reagent "0.5.0" :exclusions [cljsjs/react]]
                  [cljs-ajax "0.3.14"] 
                  [bidi "1.20.3"]
                  [org.clojure/core.async "0.1.346.0-17112a-alpha"]

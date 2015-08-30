@@ -24,15 +24,13 @@ body {
 
 
 /** Detail View **/
-img.phone {
+
+.phone-carousel-container {
   float: left;
   border: 1px solid black;
   margin-right: 3em;
   margin-bottom: 2em;
   background-color: white;
-  padding: 2em;
-  height: 400px;
-  width: 400px;
 }
 
 ul.phone-thumbs {
@@ -102,7 +100,7 @@ h1 {
   overflow: hidden;
 }
 
-.phone-listing-move.phone-listing-active,
+.phone-listing-move.phone-listing-move-active,
 .phone-listing-enter.phone-listing-enter-active {
   opacity: 1;
   height: 120px;

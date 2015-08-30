@@ -200,6 +200,7 @@ Try and call this function from the ClojureScript REPL."
         phone-item
     phone-page
       phone-detail-cpnt
+        phone-carousel
         phone-spec-cpnt
         checkmark)
 
@@ -240,10 +241,7 @@ Try and call this function from the ClojureScript REPL."
       :not-loaded-yet [:div ])))
 
 (defn phone-detail-cpnt [phone]
-  (let [{:keys [images]} phone
-        local-state (rg/atom {:main-image (first images)})]
-    (fn [phone]
-      (let [{:keys [images name description availability additionalFeatures]
+  (let [{:keys [images name description availability additionalFeatures]
          {:keys [ram flash]} :storage
          {:keys [type talkTime standbyTime]} :battery
          {:keys [cell wifi bluetooth infrared gps]} :connectivity
@@ -254,13 +252,9 @@ Try and call this function from the ClojureScript REPL."
          {:keys [primary features]} :camera
          } phone]
     [:div
-     [:img.phone {:src (:main-image @local-state)}]
+     [:span.phone-carousel-container [phone-carousel images]]
      [:h1 name]
      [:p description]
-
-     [:ul.phone-thumbs
-      (for [img images]
-        ^{:key img} [:li [:img {:src img :on-click #(swap! local-state assoc :main-image img)}]])]
      
      [:ul.specs
       [phone-spec-cpnt "Availability and Networks" [(cons "Availability" availability)]]
@@ -276,7 +270,41 @@ Try and call this function from the ClojureScript REPL."
        [:span "Additional Features"]
        [:dd additionalFeatures]]
       ]
-     ]))))
+     ]))
+
+(def phone-carousel
+  (rg/create-class 
+    ;; we can still use our classic Reagent API for the rendering function.
+    {:reagent-render 
+     (fn [images]
+       [:div {:id "phone-pictures-carousel" :class "carousel slide"}
+        [:ol {:class "carousel-indicators"}
+         (->> images 
+           (map-indexed (fn [i _]
+                          ^{:key i} [:li {:data-target "#phone-pictures-carousel" :data-slide-to (str i) :class (when (= i 0) "active")}]))
+           doall)]
+        
+        [:div {:class "carousel-inner" :role "listbox"}
+         (->> images 
+           (map-indexed (fn [i img]
+                          ^{:key i} [:div {:class (str "item " (when (= i 0) "active"))}
+                                     [:img.phone-carousel-img {:src img}]]))
+           doall)]
+      
+        [:a {:class "left carousel-control" :href "#phone-pictures-carousel" :role "button" :data-slide "prev"}
+         [:span {:class "glyphicon glyphicon-chevron-left" :aria-hidden "true"}]
+         [:span {:class "sr-only"} "Previous"]]
+        [:a {:class "right carousel-control" :href "#phone-pictures-carousel" :role "button" :data-slide "next"}
+         [:span {:class "glyphicon glyphicon-chevron-right" :aria-hidden "true"}]
+         [:span {:class "sr-only"} "Next"]]
+        ])
+     
+     ;; once the component is mounted onto the DOM, we can use this lifecycle method to access the native DOM
+     :component-did-mount (fn [this]
+                            (let [e (js/jQuery (rg/dom-node this))]
+                              (-> e (aget "carousel") (.call e)) ;; this looks awkward, but is necessary for advanced compilation. We could not have written (.carousel d), it would have failed in advanced compilation.
+                              ))
+     }))
 
 (defn phone-spec-cpnt [title kvs]
   [:li

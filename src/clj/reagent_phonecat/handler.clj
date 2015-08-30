@@ -23,6 +23,8 @@
     [:body
      [:div#app ;; element which will contain our clientside-generated views
       ]
+     (include-js (str "/webjars/jquery/2.1.4/jquery" (if (env :dev) "" ".min") ".js"))
+     (include-js (str "/webjars/bootstrap/3.1.0/js/bootstrap" (if (env :dev) "" ".min") ".js"))
      (include-js "js/app.js") 
      ]]))
 
