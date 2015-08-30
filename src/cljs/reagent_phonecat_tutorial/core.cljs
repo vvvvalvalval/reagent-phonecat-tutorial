@@ -1,12 +1,15 @@
 (ns reagent-phonecat.core
-  (:import [goog History])  
+  (:import [goog History])
+  (:require-macros [cljs.core.async.macros :refer [go go-loop]]
+                   [reagent-phonecat.core :refer [<? go-safe spy]])
   (:require [reagent.core :as rg]
             [clojure.string :as str]
             [ajax.core :as ajx]
             [bidi.bidi :as b :include-macros true]
             [goog.events :as events]
-            [goog.history.EventType :as EventType])
-    )
+            [goog.history.EventType :as EventType]
+            [cljs.core.async :as a])
+  )
 
 (enable-console-print!)
 
@@ -14,6 +17,13 @@
 Try and call this function from the ClojureScript REPL."
   [& [name]]
   (print "Hello," (or name "World") "!"))
+
+;; --------------------------------------------
+;; Utility data 
+
+(defn throw-err "Accept a value and returns it, unless it is an Error, in which case it throws it."
+  [v]
+  (if (instance? js/Error v) (throw v) v))
 
 ;; --------------------------------------------
 ;; Application data 
@@ -38,6 +48,10 @@ Try and call this function from the ClojureScript REPL."
          (filter string?) (map str/lower-case)
          (some #(re-find qp %))
          )))
+
+(comment
+  (try (throw err) (catch :default e (println (ex-data e))))
+  )
 
 ;; --------------------------------------------
 ;; State
@@ -66,36 +80,43 @@ Try and call this function from the ClojureScript REPL."
 ;; --------------------------------------------
 ;; Server communication
 
-(defn load-phones! "Fetches the list of phones from the server and updates the state atom with it" 
-  [state]
-  (ajx/GET "/phones/phones.json"
-           {:handler (fn [phones] (swap! state assoc :phones phones))
-            :error-handler (fn [details] (.warn js/console (str "Failed to refresh phones from server: " details)))
-            :response-format :json, :keywords? true}))
+(defn ajax-call "Accept a cljs-ajax request map, and returns a channel which will contain the response, or an Error if the response is an error."
+  [{:keys [method uri] :as opts}]
+  (let [=resp= (a/chan)]
+    (ajx/ajax-request (assoc opts
+                        :handler (fn [[ok r :as data]]
+                                   (if ok
+                                     (a/put! =resp= r)
+                                     (a/put! =resp= (ex-info "AJAX error" {:request opts :response r}))
+                                     ))
+                        ))
+    =resp=))
 
-(defn load-phone-details! "Fetches the list of phones from the server and updates the state atom with it" 
-  [state phone-id]
-  (ajx/GET (str "/phones/" phone-id ".json")
-           {:handler (fn [phone-data] (swap! state assoc-in [:phone-by-id phone-id] phone-data))
-            :error-handler (fn [details] 
-                             (.warn js/console (str "Failed to fetch phone data: " details)))
-            :response-format :json, :keywords? true}))
+(def ajax-defaults "Basic options for the response format"
+  {:format (ajx/json-request-format)
+   :response-format (ajx/json-response-format {:keywords? true})})
 
-(defmulti load-page-data! (fn [page params] page))
+(defn fetch-phones-list []
+  (ajax-call (assoc ajax-defaults
+               :method :get :uri "/phones/phones.json")))
 
-(defn watch-nav-changes! []
-  (add-watch navigational-state ::watch-nav-changes
-             (fn [_ _ old-state new-state]
-               (when-not (= old-state new-state)
-                 (let [{:keys [page params]} new-state]
-                   (load-page-data! page params))))
-             ))
+(defn fetch-phone-details [phone-id]
+  (ajax-call (assoc ajax-defaults
+               :method :get :uri (str "/phones/" phone-id ".json"))))
 
-(defmethod load-page-data! :phones 
-  [_ _] (load-phones! state))
+(defmulti load-page-data "Loads data for a page and returns a function with which to swap! the application state"
+  (fn [page params] page))
 
-(defmethod load-page-data! :phone 
-  [_ {:keys [phone-id]}] (load-phone-details! state phone-id))
+(defmethod load-page-data :phones
+  [_ _] (go-safe
+          (let [phones (<? (fetch-phones-list))]
+            #(assoc % :phones phones)
+            )))
+
+(defmethod load-page-data :phone
+  [_ {:keys [phone-id]}] (go-safe
+                           (let [phone-details (<? (fetch-phone-details phone-id))]
+                             #(assoc-in % [:phone-by-id phone-id] phone-details))))
 
 ;; --------------------------------------------
 ;; Routing 
@@ -131,22 +152,35 @@ Try and call this function from the ClojureScript REPL."
 (defn navigate-to! [routes nav]
   (.setToken h (nav-to-url routes nav)))
 
-(defn hook-browser-navigation! "Listen to navigation events and dispatches a route change accordingly through secretary."
-  [routes]
+(def =path-changes= "A channel which will output the new value of the path when the URL changes"
+  (a/chan (a/sliding-buffer 1) (comp (map (fn [event] (.-token event))) (dedupe))))
+
+(defn hook-browser-navigation! "Watches the path in the URL and puts change events to the =path-changes= channel."
+  []
   (doto h
     (events/listen
-      EventType/NAVIGATE
-      (fn [event]
-        (let [path (.-token event)
-              {:keys [page params] :as nav} (url-to-nav routes path)]
-          (if page
-            (reset! navigational-state nav)
-            (do
-              (.warn js/console (str "No route matches token " path ", redirecting to /phones"))
-              (navigate-to! routes {:page :phones}))
-            ))
-        ))
+      EventType/NAVIGATE (fn [event] (a/put! =path-changes= event)))
     (.setEnabled true)))
+
+(defn listen-to-paths-changes! "Listen to changes in the path, resolving the new page and fetching its data, or falling back to last page if an error occurred"
+  [routes]
+  (go (loop [last-path "/phones"] ;; the last page for which routing was successful, we'll fall back to it if something goes wrong.
+        (when-let [next-path (a/<! =path-changes=)]
+          (let [{:keys [page params] :as nav} (url-to-nav routes next-path)
+                new-last-path (cond
+                                (nil? page) (do (.replaceToken h last-path) ;; route does not exist, fall back to last page
+                                                last-path)
+                                :else (try
+                                        (let [change-data (<? (load-page-data page params))]
+                                          (swap! state change-data)
+                                          (reset! navigational-state nav) ;; success, the data has loaded, we can set the navigational state to its new value
+                                          next-path)
+                                        (catch js/Object err ;; an error occurred, abort page change
+                                          (do (.replaceToken h last-path) ;; route does not exist, fall back to last page
+                                              last-path)))
+                                )]
+            (recur new-last-path)
+            )))))
 
 ;; --------------------------------------------
 ;; View components
@@ -280,8 +314,6 @@ Try and call this function from the ClojureScript REPL."
     (.getElementById js/document "app")))
 
 (defn init! []
-  (hook-browser-navigation! routes)
-  (let [{:keys [page params]} @navigational-state]
-    (load-page-data! page params))
-  (watch-nav-changes!)
+  (hook-browser-navigation!)
+  (listen-to-paths-changes! routes)
   (mount-root))
