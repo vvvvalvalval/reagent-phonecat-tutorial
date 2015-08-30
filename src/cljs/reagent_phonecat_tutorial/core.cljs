@@ -11,7 +11,7 @@ Try and call this function from the ClojureScript REPL."
   (print "Hello," (or name "World") "!"))
 
 ;; --------------------------------------------
-;; Application data 
+;; Application data
 
 (def hardcoded-phones-data [{:name "Nexus S"
                              :description "Fast just got faster with Nexus S."
@@ -37,7 +37,7 @@ Try and call this function from the ClojureScript REPL."
 ;; --------------------------------------------
 ;; State
 
-(def state "Reagent atom that holds our global application state." 
+(defonce state
   (rg/atom {:phones hardcoded-phones-data
             :search ""
             }))
@@ -49,34 +49,35 @@ Try and call this function from the ClojureScript REPL."
 ;; View components
 
 (declare ;; here we declare our components to define their in an order that feels natural.  
-  top-cpnt 
-    search-cpnt
-    phones-list 
-      phone-item)
+  <top-cpnt>
+    <search-cpnt>
+    <phones-list>
+      <phone-item>)
 
-(defn top-cpnt []
+(defn <top-cpnt> []
   (let [{:keys [phones search]} @state]
     [:div.container-fluid
      [:div.row
-      [:div.col-md-2 [search-cpnt search]]
-      [:div.col-md-8 [phones-list phones search]]
+      [:div.col-md-2 [<search-cpnt> search]]
+      [:div.col-md-8 [<phones-list> phones search]]
       ]]))
 
-(defn search-cpnt [search]
+(defn <search-cpnt> [search]
   [:span 
    "Search: "
    [:input {:type "text" 
             :value search
             :on-change (fn [e] (swap! state update-search (-> e .-target .-value)))}]])
 
-(defn phones-list "An unordered list of phones" 
+(defn <phones-list> "An unordered list of phones"
   [phones-list search]
-  [:ul.phones
-   (for [phone (->> phones-list (filter #(matches-search? search %)))]
-     ^{:key (:name phone)} [phone-item phone]
-     )])
+  [:div.container-fluid
+   [:ul
+    (for [phone (->> phones-list (filter #(matches-search? search %)))]
+      ^{:key (:name phone)} [<phone-item> phone]
+      )]])
 
-(defn phone-item "An phone item component"
+(defn <phone-item> "An phone item component"
   [{:keys [name description] :as phone}]
   [:li.phone-item 
    [:span name]
@@ -85,7 +86,7 @@ Try and call this function from the ClojureScript REPL."
 (defn mount-root "Creates the application view and injects ('mounts') it into the root element." 
   []
   (rg/render 
-    [top-cpnt]
+    [<top-cpnt>]
     (.getElementById js/document "app")))
 
 (defn init! []
