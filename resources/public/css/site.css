@@ -125,7 +125,6 @@ h1 {
 
 .view-frame-enter, .view-frame-leave {
   background: white;
-  position: absolute;
   top: 0;
   left: 0;
   right: 0;
