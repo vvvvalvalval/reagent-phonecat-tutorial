@@ -101,7 +101,7 @@ Try and call this function from the ClojureScript REPL."
   )
 
 
-(def h (History.))
+(defonce h (History.))
 
 (defn navigate-to! [routes nav]
   (.setToken h (nav-to-url routes nav)))
