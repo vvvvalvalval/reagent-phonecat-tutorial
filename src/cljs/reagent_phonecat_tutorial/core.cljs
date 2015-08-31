@@ -12,11 +12,6 @@
             [cljsjs.react :as react])
   )
 
-(comment 
-  (in-ns 'reagent-phonecat.core)
-  
-  )
-
 (enable-console-print!)
 
 (defn say-hello! "Greets `name`, or the world if no name specified.
