@@ -75,6 +75,7 @@
 
                    :figwheel {:http-server-root "public"
                               :server-port 3449
+                              :nrepl-port 7888
                               :css-dirs ["resources/public/css"]
                               :ring-handler reagent-phonecat-tutorial.handler/app}
 
