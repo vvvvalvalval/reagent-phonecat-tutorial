@@ -113,25 +113,12 @@ Try and call this function from the ClojureScript REPL."
 (defn nav-to-url [routes {:keys [page params]}]
   (apply b/path-for routes page (->> params seq flatten)))
 
-(comment 
-  (url-to-nav routes "/phones")
-  => {:page :phones :params nil}
-  (nav-to-url routes {:page :phones})
-  => "/phones" 
-  
-  (url-to-nav routes "/phones/motorola-xoom")
-  => {:page :phone :params {:phone-id "motorola-xoom"}}
-  (nav-to-url routes {:page :phone :params {:phone-id "motorola-xoom"}})
-  => "/phones/motorola-xoom"
-  )
-
-
-(def h (History.))
+(defonce h (History.))
 
 (defn navigate-to! [routes nav]
   (.setToken h (nav-to-url routes nav)))
 
-(defn hook-browser-navigation! "Listen to navigation events and dispatches a route change accordingly through secretary."
+(defn hook-browser-navigation! "Listen to navigation events and updates the application state accordingly."
   [routes]
   (doto h
     (events/listen
