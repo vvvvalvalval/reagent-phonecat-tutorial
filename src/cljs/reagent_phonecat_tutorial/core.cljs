@@ -48,7 +48,7 @@ Try and call this function from the ClojureScript REPL."
             :order-prop :name
             
             :navigation {:page :phones ;; can be any one of #{:phones :phone}
-                         :param {}}
+                         :params {}}
             }))
 
 (def navigational-state (rg/cursor state [:navigation]))
