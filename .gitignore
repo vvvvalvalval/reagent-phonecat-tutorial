@@ -11,7 +11,14 @@ pom.xml.asc
 /out
 /.repl
 *.log
+*.min.css
 
 .classpath
 .project
 .settings
+
+.idea
+*.iml
+
+*~
+.DS_Store

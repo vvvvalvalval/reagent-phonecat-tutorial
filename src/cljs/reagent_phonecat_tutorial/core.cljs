@@ -49,10 +49,6 @@ Try and call this function from the ClojureScript REPL."
          (some #(re-find qp %))
          )))
 
-(comment
-  (try (throw err) (catch :default e (println (ex-data e))))
-  )
-
 ;; --------------------------------------------
 ;; State
 
@@ -134,25 +130,12 @@ Try and call this function from the ClojureScript REPL."
 (defn nav-to-url [routes {:keys [page params]}]
   (apply b/path-for routes page (->> params seq flatten)))
 
-(comment 
-  (url-to-nav routes "/phones")
-  => {:page :phones :params nil}
-  (nav-to-url routes {:page :phones})
-  => "/phones" 
-  
-  (url-to-nav routes "/phones/motorola-xoom")
-  => {:page :phone :params {:phone-id "motorola-xoom"}}
-  (nav-to-url routes {:page :phone :params {:phone-id "motorola-xoom"}})
-  => "/phones/motorola-xoom"
-  )
-
-
-(def h (History.))
+(defonce h (History.))
 
 (defn navigate-to! [routes nav]
   (.setToken h (nav-to-url routes nav)))
 
-(def =path-changes= "A channel which will output the new value of the path when the URL changes"
+(defonce =path-changes=
   (a/chan (a/sliding-buffer 1) (comp (map (fn [event] (.-token event))) (dedupe))))
 
 (defn hook-browser-navigation! "Watches the path in the URL and puts change events to the =path-changes= channel."
