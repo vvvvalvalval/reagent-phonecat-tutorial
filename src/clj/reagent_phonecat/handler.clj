@@ -3,33 +3,11 @@
             [compojure.route :refer [not-found resources]]
             [ring.middleware.defaults :refer [site-defaults wrap-defaults]]
             [ring.middleware.resource :refer [wrap-resource]]
-            [hiccup.core :refer [html]]
-            [hiccup.page :refer [include-js include-css]]
             [prone.middleware :refer [wrap-exceptions]]
             [ring.middleware.reload :refer [wrap-reload]]
             [environ.core :refer [env]]))
 
-(def home-page
-  (html
-   [:html {:lang "en"}
-    [:head
-     [:title "Google Phone Gallery"]
-     [:meta {:charset "utf-8"}]
-     [:meta {:name "viewport"
-             :content "width=device-width, initial-scale=1"}]
-     (include-css (str "/webjars/bootstrap/3.1.0/css/bootstrap" (if (env :dev) "" ".min") ".css")) ;; including Twitter Bootstrap stylesheets
-     (include-css (if (env :dev) "css/site.css" "css/site.min.css")) ;; our own stylesheets
-     ]
-    [:body
-     [:div#app ;; element which will contain our clientside-generated views
-      ]
-     (include-js (str "/webjars/jquery/2.1.4/jquery" (if (env :dev) "" ".min") ".js"))
-     (include-js (str "/webjars/bootstrap/3.1.0/js/bootstrap" (if (env :dev) "" ".min") ".js"))
-     (include-js "js/app.js") 
-     ]]))
-
 (defroutes routes
-  (GET "/" [] home-page)
   (resources "/")
   (not-found "Not Found"))
 
