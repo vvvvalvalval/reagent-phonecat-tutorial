@@ -2,9 +2,11 @@
 
 The official [AngularJS 'Phonecat' tutorial](https://docs.angularjs.org/tutorial) ported to a ClojureScript + Reagent stack.
 
+**The tutorial is located in the [Wiki](https://github.com/vvvvalvalval/reagent-phonecat-tutorial/wiki).**
+
 ![](https://docs.angularjs.org/img/tutorial/catalog_screen.png)
 
-The tutorial is located in the [Wiki](https://github.com/vvvvalvalval/reagent-phonecat-tutorial/wiki).
+
 
 ***
 
