@@ -23,7 +23,6 @@
                  [prone "0.8.2"]
                  
                  ;; client-side dependencies
-                 [org.webjars/bootstrap "3.1.0"]
                  [cljsjs/react "0.13.3-0"]
                  [reagent "0.5.0"]
                  [cljs-ajax "0.3.14"] 
@@ -90,6 +89,14 @@
 }
 }}
 
+             :static-website {:hooks [leiningen.cljsbuild minify-assets.plugin/hooks]
+                              :env {:production true}
+                              :omit-source true
+                              :cljsbuild {:builds {:app
+                                                   {:source-paths ["env/prod/cljs"]
+                                                    :compiler
+                                                    {:optimizations :advanced
+                                                     :pretty-print false}}}}}
              :uberjar {:hooks [leiningen.cljsbuild minify-assets.plugin/hooks]
                        :env {:production true}
                        :aot :all
